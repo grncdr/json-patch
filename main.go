@@ -39,7 +39,15 @@ var impls = map[string]operator{
 	"copy":    applyCopy,
 }
 
-func Patch(o interface{}, operations []Operation) (interface{}, error) {
+func Parse(patch []byte) ([]Operation, error) {
+	result := make([]Operation, 0)
+	if err := json.Unmarshal(patch, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func Apply(o interface{}, operations []Operation) (interface{}, error) {
 
 	o2 := deepCopy(o)
 
