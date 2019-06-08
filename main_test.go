@@ -26,7 +26,7 @@ func doSpec(name string, t *testing.T, specs []Spec) {
 		if spec.Doc == nil {
 			spec.Doc = make(map[string]interface{})
 		}
-		result, err := Patch(spec.Doc, spec.Patch)
+		result, err := Apply(spec.Doc, spec.Patch)
 		if err == nil && spec.Error != "" {
 			t.Errorf("not ok %d [%s] - expected error %s", i, spec.Comment, spec.Error)
 		} else if err != nil && spec.Error == "" {
@@ -56,22 +56,28 @@ func doSpecFile(t *testing.T, filename string) {
 	doSpec(filename, t, specs)
 }
 
+func parseStr(s string) []Operation {
+	ops, err := Parse([]byte(s))
+	if err != nil {
+		panic(err)
+	}
+	return ops
+}
+
 func TestAdd(t *testing.T) {
 	doSpec("Add tests", t, []Spec{
 		Spec{
-			Comment: "add test 1",
-			Patch: []Operation{
-				Operation{Op: "add", Path: "/hello", Value: json.RawMessage(`"world"`)},
-			},
+			Comment:  "add test 1",
+			Patch:    parseStr(`[{"op": "add", "path": "/hello", "value": "world"}]`),
 			Expected: map[string]interface{}{"hello": "world"},
 		},
 		Spec{
 			Comment: "add test 2",
-			Patch: []Operation{
-				Operation{Op: "add", Path: "/nested", Value: json.RawMessage(`{}`)},
-				Operation{Op: "add", Path: "/nested/number", Value: json.RawMessage(`12`)},
-				Operation{Op: "add", Path: "/nested/string", Value: json.RawMessage(`"yeah"`)},
-			},
+			Patch: parseStr(`[
+				{"op": "add", "path": "/nested", "value": {}},
+				{"op": "add", "path": "/nested/number", "value": 12},
+				{"op": "add", "path": "/nested/string", "value": "yeah"}
+			]`),
 			Expected: map[string]interface{}{
 				"nested": map[string]interface{}{
 					"number": float64(12),
@@ -86,20 +92,20 @@ func TestRemove(t *testing.T) {
 	doSpec("Remove tests", t, []Spec{
 		Spec{
 			Comment: "Remove test 1",
-			Patch: []Operation{
-				Operation{Op: "add", Path: "/hello", Value: json.RawMessage(`"world"`)},
-				Operation{Op: "remove", Path: "/hello"},
-			},
+			Patch: parseStr(`[
+				{"op": "add", "path": "/hello", "value": "world"},
+				{"op": "remove", "path": "/hello"}
+			]`),
 			Expected: map[string]interface{}{},
 		},
 		Spec{
 			Comment: "Remove test 2",
-			Patch: []Operation{
-				Operation{Op: "add", Path: "/nested", Value: json.RawMessage(`{}`)},
-				Operation{Op: "add", Path: "/nested/number", Value: json.RawMessage("12")},
-				Operation{Op: "add", Path: "/nested/string", Value: json.RawMessage(`"yeah"`)},
-				Operation{Op: "remove", Path: "/nested/number"},
-			},
+			Patch: parseStr(`[
+				{"op": "add", "path": "/nested", "value": {}},
+				{"op": "add", "path": "/nested/number", "value": 12},
+				{"op": "add", "path": "/nested/string", "value": "yeah"},
+				{"op": "remove", "path": "/nested/number"}
+			]`),
 			Expected: map[string]interface{}{
 				"nested": map[string]interface{}{"string": "yeah"},
 			},

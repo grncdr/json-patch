@@ -13,7 +13,7 @@ type Operation struct {
 	Op    string          `json:"op"`
 	Path  string          `json:"path"`
 	Value json.RawMessage `json:"value"`
-	From  string          `json:"from"`
+	From  string          `json:"from,omitempty"`
 }
 
 // commands are the internal representation of an operation to be applied
@@ -48,27 +48,28 @@ func Parse(patch []byte) ([]Operation, error) {
 }
 
 func Apply(o interface{}, operations []Operation) (interface{}, error) {
+	return ApplyUnsafe(deepCopy(o), operations)
+}
 
-	o2 := deepCopy(o)
-
+func ApplyUnsafe(o interface{}, operations []Operation) (interface{}, error) {
 	for _, op := range operations {
 		impl := impls[op.Op]
 		if impl == nil {
 			return nil, fmt.Errorf("%s is not valid operator", op.Op)
 		}
 
-		c, err := makeCommand(o2, &op)
+		c, err := makeCommand(o, &op)
 		if err != nil {
 			return nil, err
 		}
 
-		o2, err = impl(o2, &op, c)
+		o, err = impl(o, &op, c)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return o2, nil
+	return o, nil
 }
 
 func makeCommand(root interface{}, op *Operation) (*command, error) {
@@ -358,18 +359,16 @@ func walkPath(root interface{}, path []string) ([]interface{}, error) {
  * interface{} are treated as immutable anyways
  */
 func deepCopy(root interface{}) interface{} {
-	switch root.(type) {
+	switch src := root.(type) {
 	case map[string]interface{}:
-		m := root.(map[string]interface{})
-		out := make(map[string]interface{}, len(m))
-		for k, v := range m {
+		out := make(map[string]interface{}, len(src))
+		for k, v := range src {
 			out[k] = deepCopy(v)
 		}
 		return out
 	case []interface{}:
-		s := root.([]interface{})
-		out := make([]interface{}, len(s))
-		for k, v := range s {
+		out := make([]interface{}, len(src))
+		for k, v := range src {
 			out[k] = deepCopy(v)
 		}
 		return out
